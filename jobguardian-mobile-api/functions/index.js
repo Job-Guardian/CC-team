@@ -55,6 +55,9 @@ function generateCustomUID(length) {
 }
 
 
+// api untuk input job//
+
+
 // add data or post data //
 app.post("/api/add", (req, res) => {
   (async () => {
@@ -156,6 +159,45 @@ app.put("/api/update/:jobId", (req, res) => {
       return res.status(500).send({status: "Failed", msg: error});
     }
   })();
+});
+
+
+// api untuk profile user //
+
+// mencari user profile //
+app.get("/api/profile/:userId", (req, res) => {
+  // Handle permintaan profil berdasarkan userID di sini
+  const userId = req.params.userId;
+  // Contoh pengambilan profil dari Firestore dengan userId tertentu
+  db.collection("Users").doc(userId).get()
+    .then((doc) => {
+      if (!doc.exists) {
+        return res.status(404).send({ status: "Failed", msg: "Profil tidak ditemukan di database" });
+      }
+      const profileData = doc.data();
+      return res.status(200).send({ status: "Success", data: profileData });
+    })
+    .catch((error) => {
+      console.error(error);
+      return res.status(500).send({ status: "Failed", msg: error });
+    });
+});
+
+
+// melakukan update user profile //
+app.put("/api/profile/update/:userId", (req, res) => {
+  const userId = req.params.userId;
+  const updatedProfileData = req.body;
+
+  // Lakukan pembaruan profil di Firestore berdasarkan userId
+  db.collection("Users").doc(userId).update(updatedProfileData)
+    .then(() => {
+      return res.status(200).send({ status: "Success", msg: "Profil berhasil diperbarui" });
+    })
+    .catch((error) => {
+      console.error(error);
+      return res.status(500).send({ status: "Failed", msg: error });
+    });
 });
 
 
