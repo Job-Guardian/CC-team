@@ -26,7 +26,8 @@ const admin = require("firebase-admin");
 const serviceAccount = require("./serviceAccountKey.json");
 
 admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount)});
+  credential: admin.credential.cert(serviceAccount),
+});
 
 const express = require("express");
 const cors = require("cors");
@@ -37,9 +38,9 @@ app.use(cors({origin: true}));
 app.use(express.json());
 app.use(express.urlencoded({extended: true}));
 
+
 // database reference //
 const db = admin.firestore();
-
 
 // generate custom UID //
 // eslint-disable-next-line require-jsdoc
@@ -55,10 +56,9 @@ function generateCustomUID(length) {
 }
 
 
-// api untuk input job//
+// bagian API input job dari user //
 
-
-// add data or post data //
+// API add data or post data //
 app.post("/api/add", (req, res) => {
   (async () => {
     try {
@@ -73,6 +73,15 @@ app.post("/api/add", (req, res) => {
         description: req.body.description,
         requirements: req.body.requirements,
         benefits: req.body.benefits,
+        telecommuting: req.body.telecommuting,
+        hasCompanyLog: req.body.hasCompanyLog,
+        hasQuestions: req.body.hasQuestions,
+        employmentType: req.body.employmentType,
+        requiredExperience: req.body.requiredExperience,
+        requiredEducation: req.body.requiredEducation,
+        industry: req.body.industry,
+        function: req.body.function,
+        fraudulent: req.body.fraudulent,
         status: "Unverified",
       };
       await db.collection("workCollection").doc(customId).set(currentJobData);
@@ -87,7 +96,7 @@ app.post("/api/add", (req, res) => {
 });
 
 
-// get single data from firestore document collection with specific id //
+// API mengambil data dengan specific id //
 app.get("/api/get/:jobId", (req, res) => {
   (async () => {
     try {
@@ -105,7 +114,7 @@ app.get("/api/get/:jobId", (req, res) => {
 });
 
 
-// get all data from workCollection on firestore
+// API mengambil seluruh data dari workCollection on firestore //
 app.get("/api/getAll", (req, res) => {
   (async () => {
     try {
@@ -125,6 +134,15 @@ app.get("/api/getAll", (req, res) => {
             description: doc.data().description,
             requirements: doc.data().requirements,
             benefits: doc.data().benefits,
+            telecommuting: doc.data().telecommuting,
+            hasCompanyLog: doc.data().hasCompanyLog,
+            hasQuestions: doc.data().hasQuestions,
+            employmentType: doc.data().employmentType,
+            requiredExperience: doc.data().requiredExperience,
+            requiredEducation: doc.data().requiredEducation,
+            industry: doc.data().industry,
+            function: doc.data().function,
+            fraudulent: doc.data().fraudulent,
             status: doc.data().status,
           };
           response.push(selectedItem);
@@ -141,7 +159,7 @@ app.get("/api/getAll", (req, res) => {
 });
 
 
-// update status data on workCollection with specific id //
+// API update status verification job dengan specific id //
 app.put("/api/update/:jobId", (req, res) => {
   (async () => {
     try {
@@ -162,42 +180,153 @@ app.put("/api/update/:jobId", (req, res) => {
 });
 
 
-// api untuk profile user //
+// bagian API untuk login dan registrasi user //
 
-// mencari user profile //
-app.get("/api/profile/:userId", (req, res) => {
-  // Handle permintaan profil berdasarkan userID di sini
-  const userId = req.params.userId;
-  // Contoh pengambilan profil dari Firestore dengan userId tertentu
-  db.collection("Users").doc(userId).get()
-    .then((doc) => {
-      if (!doc.exists) {
-        return res.status(404).send({ status: "Failed", msg: "Profil tidak ditemukan di database" });
+// API register user
+app.post("/api/registerUser", (req, res) => {
+  (async () => {
+    try {
+      const {email, password} = req.body;
+
+      if (!email || !password) {
+        // eslint-disable-next-line max-len
+        return res.status(400).send({status: "Failed", msg: "Email and password are required."});
       }
-      const profileData = doc.data();
-      return res.status(200).send({ status: "Success", data: profileData });
-    })
-    .catch((error) => {
-      console.error(error);
-      return res.status(500).send({ status: "Failed", msg: error });
-    });
+
+      const usersRef = db.collection("usersCollection");
+      const snapshot = await usersRef.where("email", "==", email).get();
+
+      if (!snapshot.empty) {
+        // eslint-disable-next-line max-len
+        return res.status(400).send({status: "Failed", msg: "Email already exists."});
+      }
+
+      const newUser = {
+        email: email,
+        password: password,
+      };
+
+      await usersRef.doc().set(newUser);
+
+      // eslint-disable-next-line max-len
+      return res.status(201).send({status: "Success", msg: "User registered successfully."});
+    } catch (error) {
+      console.log(error);
+      return res.status(500).send({status: "Failed", msg: error});
+    }
+  })();
 });
 
 
-// melakukan update user profile //
-app.put("/api/profile/update/:userId", (req, res) => {
-  const userId = req.params.userId;
-  const updatedProfileData = req.body;
+// API login user
+app.post("/api/loginUser", (req, res) => {
+  (async () => {
+    try {
+      const {email, password} = req.body;
 
-  // Lakukan pembaruan profil di Firestore berdasarkan userId
-  db.collection("Users").doc(userId).update(updatedProfileData)
-    .then(() => {
-      return res.status(200).send({ status: "Success", msg: "Profil berhasil diperbarui" });
-    })
-    .catch((error) => {
-      console.error(error);
-      return res.status(500).send({ status: "Failed", msg: error });
-    });
+      if (!email || !password) {
+        // eslint-disable-next-line max-len
+        return res.status(400).send({status: "Failed", msg: "Email and password are required."});
+      }
+
+      const usersRef = db.collection("usersCollection");
+      // eslint-disable-next-line max-len
+      const snapshot = await usersRef.where("email", "==", email).where("password", "==", password).get();
+
+      if (snapshot.empty) {
+        // eslint-disable-next-line max-len
+        return res.status(404).send({status: "Failed", msg: "Invalid email or password."});
+      }
+
+      // eslint-disable-next-line max-len
+      // jika login berhasil, ambil ID dari dokumen yang cocok dengan email dan password
+      let userId;
+      snapshot.forEach((doc) => {
+        userId = doc.id;
+      });
+
+      // eslint-disable-next-line max-len
+      return res.status(200).send({status: "Success", msg: "Login successful.", userId: userId});
+    } catch (error) {
+      console.log(error);
+      return res.status(500).send({status: "Failed", msg: error});
+    }
+  })();
+});
+
+
+// API get data User //
+app.put("/api/updateBiodataUser/:userId", async (req, res) => {
+  try {
+    const userId = req.params.userId;
+    const {fullName, birthDate, contact} = req.body;
+
+    if (!userId) {
+      throw new Error("UserId is required");
+    }
+
+    // Pastikan minimal salah satu informasi yang akan diperbarui ada
+    if (!fullName && !contact && !birthDate) {
+      // eslint-disable-next-line max-len
+      throw new Error("At least one field (fullName, contact, or birthDate) is required for update");
+    }
+
+    const updateData = {};
+
+    if (fullName) {
+      updateData.fullName = fullName;
+    }
+
+    if (birthDate) {
+      updateData.birthDate = birthDate;
+    }
+
+    if (contact) {
+      updateData.contact = contact;
+    }
+
+    // eslint-disable-next-line max-len
+    await admin.firestore().collection("usersCollection").doc(userId).update(updateData);
+
+    // eslint-disable-next-line max-len
+    res.status(200).send({message: "Biodata updated successfully", updatedFields: updateData});
+  } catch (error) {
+    console.error("Error:", error);
+    res.status(500).send({error: error.message});
+  }
+});
+
+
+// API update status verification job dengan specific id //
+app.put("/api/updateUserProfile/:userId", (req, res) => {
+  (async () => {
+    try {
+      const userId = req.params.userId;
+      const updatedfullName = req.body.status;
+      const birthDate = req.body.birthDate;
+      const contact = req.body.contact;
+
+      if (!userId) {
+        throw new Error("User ID Not Found");
+      }
+
+      // Pastikan minimal salah satu informasi yang akan diperbarui ada
+      if (!updatedfullName && !contact && !birthDate) {
+      // eslint-disable-next-line max-len
+        throw new Error("Nothing is Updated");
+      }
+
+      // update status pada Firestore di document berdasarkan userID //
+      // eslint-disable-next-line max-len
+      await db.collection("usersCollection").doc(userId).update({status: updatedfullName, birthDate, contact});
+
+      // eslint-disable-next-line max-len
+      return res.status(200).send({status: "Success", msg: "Data Updated", userId: userId});
+    } catch (error) {
+      console.log(error);
+      return res.status(500).send({status: "Failed", msg: error});
+    }
+  })();
 });
 
 
