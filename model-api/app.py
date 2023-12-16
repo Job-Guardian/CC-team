@@ -51,9 +51,9 @@ class PredictJobFraud(Resource):
             
             # Konversi hasil prediksi menjadi label
             if prediction[0][0] == 1:
-                result = "Tawaran Pekerjaan Palsu"
+                result = "False Job Offer"
             else:
-                result = "Tawaran Pekerjaan Asli"
+                result = "Genuine Job Offer"
             
             # Mengembalikan hasil prediksi
             return {'prediction': result}
