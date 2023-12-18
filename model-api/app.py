@@ -11,10 +11,12 @@ from nltk.corpus import stopwords
 from nltk.stem.snowball import SnowballStemmer
 from tensorflow.keras.models import load_model
 
+nltk.download('stopwords')
+
 app = Flask(__name__)
 api = Api(app)
 
-model = load_model('model-api/job-fake.h5')  # Jika model berada dalam subfolder 'flask-api'
+model = load_model('job-fake.h5')  # Jika model berada dalam subfolder 'flask-api'
 
 # Function to preprocess input text
 def preprocess_text(text):
@@ -30,38 +32,34 @@ def preprocess_text(text):
     
     return clean_text
 
-class PredictJobFraud(Resource):
-    def post(self):
-        try:
-            # Ambil data yang dikirimkan oleh API mobile
-            data = request.get_json(force=True)
-            job_description = data['job_description']
-            
-            # Lakukan preprocessing pada teks yang diterima
-            cleaned_text = preprocess_text(job_description)
-            
-            # Lakukan one-hot encoding pada teks yang sudah dipreprocess
-            voc_size = 5000
-            onehot_text = [one_hot(cleaned_text, voc_size)]
-            sent_length = 100
-            sent_with_same_length = pad_sequences(onehot_text, padding='post', maxlen=sent_length)
-            
-            # Lakukan prediksi menggunakan model
-            prediction = model.predict(sent_with_same_length)
-            
-            # Konversi hasil prediksi menjadi label
-            if prediction[0][0] == 1:
-                result = "False Job Offer"
-            else:
-                result = "Genuine Job Offer"
-            
-            # Mengembalikan hasil prediksi
-            return {'prediction': result}
+@app.route('/')
+def index():
+    return 'Hello!'
 
-        except Exception as e:
-            return {'error': str(e)}
-    
-api.add_resource(PredictJobFraud, '/predict')
+@app.route('/predict_job', methods=['POST'])
+def predict_job():
+    try:
+        data = request.get_json(force=True)
+        job_description = data.get('job_description', '')
+        
+        cleaned_text = preprocess_text(job_description)
+        
+        voc_size = 5000
+        onehot_text = [one_hot(cleaned_text, voc_size)]
+        sent_length = 100
+        sent_with_same_length = pad_sequences(onehot_text, padding='post', maxlen=sent_length)
+        
+        prediction = model.predict(sent_with_same_length)
+        
+        if prediction[0][0] == 1:
+            result = "False Job Offer"
+        else:
+            result = "Genuine Job Offer"
+        
+        return jsonify({'prediction': result})
 
+    except Exception as e:
+        return jsonify({'error': str(e)}), 400
+        
 if __name__ == '__main__':
     app.run(debug=True)
