@@ -54,4 +54,4 @@ tzdata
 Werkzeug
 wrapt
 urllib3==1.26.8
-
+Tokenizer
