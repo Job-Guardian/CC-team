@@ -55,6 +55,7 @@ function generateCustomUID(length) {
   return result;
 }
 
+
 // bagian API input job dari user //
 
 // API add data or post data //
@@ -74,14 +75,14 @@ app.post("/api/add", (req, res) => {
         benefits: req.body.benefits,
         telecommuting: req.body.telecommuting,
         hasCompanyLog: req.body.hasCompanyLog,
-        hasQuestions: req.body.hasQuestions,
         employmentType: req.body.employmentType,
         requiredExperience: req.body.requiredExperience,
         requiredEducation: req.body.requiredEducation,
         industry: req.body.industry,
         jobfunction: req.body.jobfunction,
         fraudulent: req.body.fraudulent,
-        status: "Unverified",
+        companyLogo: req.body.companyLogo,
+        statusVerified: "Unknown",
       };
       await db.collection("workCollection").doc(customId).set(currentJobData);
 
@@ -92,6 +93,110 @@ app.post("/api/add", (req, res) => {
       return res.status(500).send({status: "Failed", msg: error});
     }
   })();
+});
+
+// app.post("/api/addDescription", (req, res) => {
+//   (async () => {
+//     try {
+//       const customId = generateCustomUID(20);
+
+//       const jobDescriptionData = {
+//         descriptionId: customId,
+//         logo: (req.body.logo === 'true'), // Convert string to boolean
+//         contact: (req.body.contact === 'true'), // Convert string to boolean
+//         job_description: req.body.job_description,
+//         statusVerified: "Unknown",
+//       };
+
+//       await db.collection("descriptionCollection").doc(customId).set(jobDescriptionData);
+
+//       return res.status(200).send({ status: "Success", msg: "Data Saved", descriptionId: customId });
+//     } catch (error) {
+//       console.log(error);
+//       return res.status(500).send({ status: "Failed", msg: error });
+//     }
+//   })();
+// });
+
+const http = require("http");
+
+app.post("/api/addDescription", async (req, res) => {
+  try {
+    const customId = generateCustomUID(20);
+
+    const jobDescriptionData = {
+      descriptionId: customId,
+      logo: req.body.logo === "true",
+      contact: req.body.contact === "true",
+      job_description: req.body.job_description,
+      statusVerified: "Unknown",
+    };
+
+    // eslint-disable-next-line max-len
+    await db.collection("descriptionCollection").doc(customId).set(jobDescriptionData);
+
+    const requestData = JSON.stringify(jobDescriptionData);
+
+    const predictJobOptions = {
+      hostname: "jobguardian-app-project.et.r.appspot.com",
+      path: "/predictJob",
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Content-Length": requestData.length,
+      },
+    };
+
+    // eslint-disable-next-line max-len
+    const predictJobRequest = http.request(predictJobOptions, (predictJobResponse) => {
+      let data = "";
+
+      predictJobResponse.on("data", (chunk) => {
+        data += chunk;
+      });
+
+      predictJobResponse.on("end", () => {
+        try {
+          const parsedData = JSON.parse(data);
+          const predictedJob = parsedData.prediction;
+
+          if (predictedJob === undefined) {
+            console.error("Predicted job is undefined.");
+            console.error("Received data:", parsedData);
+            // eslint-disable-next-line max-len
+            return res.status(500).send({status: "Failed", msg: "Predicted job is undefined"});
+          } else {
+            console.log("Predicted Job:", predictedJob);
+
+            return res.status(200).send({
+              "status": "Success",
+              "msg": "Data Saved",
+              "descriptionId": customId,
+              "Predicted Job": predictedJob,
+            });
+          }
+        } catch (error) {
+          console.error("Error parsing response data:", error);
+          console.error("Received data:", data);
+          // eslint-disable-next-line max-len
+          return res.status(500).send({status: "Failed", msg: "Error parsing response data"});
+        }
+      });
+    });
+
+    predictJobRequest.on("error", (error) => {
+      console.error("Predict job request error:", error);
+      // eslint-disable-next-line max-len
+      return res.status(500).send({status: "Failed", msg: error.message || "Unknown error"});
+    });
+
+    predictJobRequest.write(requestData);
+    predictJobRequest.end();
+  } catch (error) {
+    console.error("General error:", error);
+    // eslint-disable-next-line max-len
+    return res.status(500).send({status: "Failed", msg: error.message || "Unknown error"});
+  }
 });
 
 // API mengambil data dengan specific id //
@@ -109,6 +214,25 @@ app.get("/api/get/:jobId", (req, res) => {
       return res.status(500).send({status: "Failed", msg: error});
     }
   })();
+});
+
+
+app.get("/api/getDescription/:descriptionId", async (req, res) => {
+  try {
+    const descriptionId = req.params.descriptionId;
+
+    const snapshot = await db.collection("descriptionCollection").doc(descriptionId).get();
+
+    if (!snapshot.exists) {
+      return res.status(404).send({ status: "Failed", msg: "Description not found" });
+    }
+
+    const descriptionData = snapshot.data();
+    return res.status(200).send({ status: "Success", data: descriptionData });
+  } catch (error) {
+    console.log(error);
+    return res.status(500).send({ status: "Failed", msg: error });
+  }
 });
 
 // API mengambil seluruh data dari workCollection on firestore //
@@ -133,13 +257,13 @@ app.get("/api/getAll", (req, res) => {
             benefits: doc.data().benefits,
             telecommuting: doc.data().telecommuting,
             hasCompanyLog: doc.data().hasCompanyLog,
-            hasQuestions: doc.data().hasQuestions,
             employmentType: doc.data().employmentType,
             requiredExperience: doc.data().requiredExperience,
             requiredEducation: doc.data().requiredEducation,
             industry: doc.data().industry,
             functionjo: doc.data().functionjob,
             fraudulent: doc.data().fraudulent,
+            companyLogo: doc.data().companyLogo,
             status: doc.data().status,
           };
           response.push(selectedItem);
@@ -155,16 +279,17 @@ app.get("/api/getAll", (req, res) => {
   })();
 });
 
+
 // API update status verification job dengan specific id //
-app.put("/api/update/:jobId", (req, res) => {
+app.put("/api/updateStatusJobInput/:jobId", (req, res) => {
   (async () => {
     try {
       const jobId = req.params.jobId;
-      const updatedStatus = req.body.status;
+      const statusVerified = req.body.status;
 
       // update status pada Firestore di document berdasarkan jobID //
       // eslint-disable-next-line max-len
-      await db.collection("workCollection").doc(jobId).update({status: updatedStatus});
+      await db.collection("workCollection").doc(jobId).update({status: statusVerified});
 
       // eslint-disable-next-line max-len
       return res.status(200).send({status: "Success", msg: "Data Updated", jobId: jobId});
@@ -174,6 +299,27 @@ app.put("/api/update/:jobId", (req, res) => {
     }
   })();
 });
+
+// API update status verification job dengan specific id //
+app.put("/api/updateStatusJobDescription/:descriptionId", (req, res) => {
+  (async () => {
+    try {
+      const descriptionId = req.params.descriptionId;
+      const statusVerified = req.body.statusVerified;
+
+      // update status pada Firestore di document berdasarkan descriptionId //
+      // eslint-disable-next-line max-len
+      await db.collection("descriptionCollection").doc(descriptionId).update({statusVerified: statusVerified});
+
+      // eslint-disable-next-line max-len
+      return res.status(200).send({status: "Success", msg: "Data Updated", descriptionId: descriptionId});
+    } catch (error) {
+      console.log(error);
+      return res.status(500).send({status: "Failed", msg: error});
+    }
+  })();
+});
+
 
 // bagian API untuk login dan registrasi user //
 
@@ -252,6 +398,7 @@ app.post("/api/loginUser", (req, res) => {
   })();
 });
 
+
 // API get data User //
 app.put("/api/updateBiodataUser/:userId", async (req, res) => {
   try {
@@ -294,6 +441,7 @@ app.put("/api/updateBiodataUser/:userId", async (req, res) => {
     res.status(500).send({error: error.message});
   }
 });
+
 
 // API update status verification job dengan specific id //
 app.put("/api/updateUserProfile/:userId", (req, res) => {
