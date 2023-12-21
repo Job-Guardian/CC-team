@@ -2,7 +2,7 @@
 
 ![Cloud Achitecture Job Guardian](https://storage.googleapis.com/jobguardian-app-storage/architecture/Cloud%20Architecture%20JobGuardian.png)
 
-<h2>Steps on how to replicate the REST API for mobile and the FLASK API for model that we created in this project :</h2>
+<h2>Steps on how to replicate the REST API for mobile and the FLASK API for model that created in this project :</h2>
 
 The creation of mobile API and model API in our project uses JS and Python. If you want to replicate it, please pay attention to the runtime version so that there are no packages that conflict with each other, especially in making API models.
 
