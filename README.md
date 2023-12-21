@@ -60,4 +60,4 @@ We use cloud functions in firebase to deploy the API, then, these is step by ste
         firebase deploy
   
 - It will take a while for the deployment process to complete.
-- Go to your firebase console, click on functions and you can see your API with a base url that has the /app suffix. This base url that you can use for your API.
+- Go to your firebase console, click on functions and you can see your API with a base url that has the /app suffix. This base url that you can use for your API and use the endpoint that you have created before.
