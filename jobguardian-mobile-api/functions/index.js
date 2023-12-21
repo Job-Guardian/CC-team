@@ -501,5 +501,55 @@ app.get("/api/getUserProfile/:userId", async (req, res) => {
   }
 });
 
+const {Storage} = require("@google-cloud/storage");
+
+// Inisialisasi Firebase Cloud Storage
+
+// Inisialisasi Firebase Cloud Storage
+const storage = new Storage();
+const bucket = storage.bucket("jobguardian-app-project.appspot.com");
+
+// Endpoint untuk upload foto profil ke Cloud Storage
+app.post("/api/uploadProfilePicture/:userId", async (req, res) => {
+  try {
+    const userId = req.params.userId;
+    const fileBuffer = req.body.profilePicture; // Mengambil buffer gambar dari body request
+
+    if (!userId || !fileBuffer) {
+      return res.status(400).send({status: "Failed", msg: "User ID and profile picture buffer are required."});
+    }
+
+    const timestamp = new Date().getTime(); // Membuat timestamp sebagai UUID sederhana
+
+    const uniqueFilename = `${userId}_${timestamp}_profilePicture.jpg`; // Menamai gambar
+
+    const blob = bucket.file(uniqueFilename);
+    const blobStream = blob.createWriteStream({
+      metadata: {
+        contentType: "auto",
+      },
+    });
+
+    blobStream.on("error", (error) => {
+      console.error("Error uploading file:", error);
+      return res.status(500).send({status: "Failed", msg: "Error uploading file to Cloud Storage"});
+    });
+
+    blobStream.on("finish", async () => {
+      const publicUrl = `https://storage.googleapis.com/${bucket.name}/${blob.name}`;
+
+      // Update URL foto profil pengguna di database
+      await admin.firestore().collection("usersCollection").doc(userId).update({profilePicture: publicUrl});
+
+      return res.status(200).send({status: "Success", msg: "Profile picture uploaded successfully", imageUrl: publicUrl});
+    });
+
+    blobStream.end(Buffer.from(fileBuffer, "base64")); // Mengakhiri stream dengan buffer gambar
+  } catch (error) {
+    console.error("Error:", error);
+    return res.status(500).send({status: "Failed", msg: error.message || "Unknown error"});
+  }
+});
+
 // exports api to firebase cloud function //
 exports.app = functions.https.onRequest(app);
