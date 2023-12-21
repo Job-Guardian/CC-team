@@ -321,10 +321,85 @@ app.put("/api/updateStatusJobDescription/:descriptionId", (req, res) => {
 });
 
 
-// bagian API untuk login dan registrasi user //
+// // bagian API untuk login dan registrasi user //
 
-// API register user
-app.post("/api/registerUser", async (req, res) => {
+// // API register user
+// app.post("/api/registerUser", async (req, res) => {
+//   try {
+//     const { username, email, password } = req.body;
+
+//     if (!username || !email || !password) {
+//       return res.status(400).send({ status: "Failed", msg: "Username, email, and password are required." });
+//     }
+
+//     const usersRef = db.collection("usersCollection");
+
+//     // Check if email or username already exists
+//     const usernameSnapshot = await usersRef.where("username", "==", username).get();
+//     const emailSnapshot = await usersRef.where("email", "==", email).get();
+
+//     if (!emailSnapshot.empty) {
+//       return res.status(400).send({ status: "Failed", msg: "Email already exists." });
+//     }
+
+//     if (!usernameSnapshot.empty) {
+//       return res.status(400).send({ status: "Failed", msg: "Username already exists." });
+//     }
+
+//     const newUser = {
+//       username: username,
+//       email: email,
+//       password: password,
+//     };
+
+//     await usersRef.add(newUser);
+
+//     return res.status(201).send({ status: "Success", msg: "User registered successfully." });
+//   } catch (error) {
+//     console.log(error);
+//     return res.status(500).send({ status: "Failed", msg: error });
+//   }
+// });
+
+// // Endpoint untuk melakukan login user
+// // API login user
+// app.post("/api/loginUser", (req, res) => {
+//   (async () => {
+//     try {
+//       const {email, password} = req.body;
+
+//       if (!email || !password) {
+//         // eslint-disable-next-line max-len
+//         return res.status(400).send({status: "Failed", msg: "Email and password are required."});
+//       }
+
+//       const usersRef = db.collection("usersCollection");
+//       // eslint-disable-next-line max-len
+//       const snapshot = await usersRef.where("email", "==", email).where("password", "==", password).get();
+
+//       if (snapshot.empty) {
+//         // eslint-disable-next-line max-len
+//         return res.status(404).send({status: "Failed", msg: "Invalid email or password."});
+//       }
+
+//       // eslint-disable-next-line max-len
+//       // jika login berhasil, ambil ID dari dokumen yang cocok dengan email dan password
+//       let userId;
+//       snapshot.forEach((doc) => {
+//         userId = doc.id;
+//       });
+
+//       // eslint-disable-next-line max-len
+//       return res.status(200).send({status: "Success", msg: "Login successful.", userId: userId});
+//     } catch (error) {
+//       console.log(error);
+//       return res.status(500).send({status: "Failed", msg: error});
+//     }
+//   })();
+// });
+
+// Endpoint untuk register user dan menyimpan data di Firestore
+app.post("/api/registerUserFirebase", async (req, res) => {
   try {
     const { username, email, password } = req.body;
 
@@ -332,38 +407,33 @@ app.post("/api/registerUser", async (req, res) => {
       return res.status(400).send({ status: "Failed", msg: "Username, email, and password are required." });
     }
 
-    const usersRef = db.collection("usersCollection");
-
-    // Check if email or username already exists
-    const usernameSnapshot = await usersRef.where("username", "==", username).get();
-    const emailSnapshot = await usersRef.where("email", "==", email).get();
-
-    if (!emailSnapshot.empty) {
-      return res.status(400).send({ status: "Failed", msg: "Email already exists." });
-    }
-
-    if (!usernameSnapshot.empty) {
-      return res.status(400).send({ status: "Failed", msg: "Username already exists." });
-    }
-
-    const newUser = {
-      username: username,
+    // Create user in Firebase Authentication
+    const userRecord = await admin.auth().createUser({
       email: email,
       password: password,
-    };
+      displayName: username,
+    });
 
-    await usersRef.add(newUser);
+    const { uid, email: userEmail, displayName } = userRecord;
 
-    return res.status(201).send({ status: "Success", msg: "User registered successfully." });
+    const userData = { uid, email: userEmail, username: displayName, password: password };
+
+    // Save user information to Firestore
+    const usersRef = admin.firestore().collection("usersCollection");
+    await usersRef.doc(uid).set(userData);
+
+    return res.status(201).send({ status: "Success", msg: "User registered successfully.", userId: uid });
   } catch (error) {
-    console.log(error);
+    console.error(error);
     return res.status(500).send({ status: "Failed", msg: error });
   }
 });
 
+
+
 // Endpoint untuk melakukan login user
 // API login user
-app.post("/api/loginUser", (req, res) => {
+app.post("/api/loginUserFirebase", (req, res) => {
   (async () => {
     try {
       const {email, password} = req.body;
@@ -399,13 +469,14 @@ app.post("/api/loginUser", (req, res) => {
 });
 
 
+
 // API get data User //
 app.put("/api/updateBiodataUser/:userId", async (req, res) => {
   try {
     const userId = req.params.userId;
     const {fullName, birthDate, contact} = req.body;
 
-    res.status(200).json({ userId, message: 'User profile retrieved' });
+    res.status(200).json({ userId, message: 'User profile updated' });
 
     if (!userId) {
       throw new Error("UserId is required");
